@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: readmit
+Version: 0.1.0
+Summary: AAI-540 Group 2 — 30-day hospital readmission risk MLOps pipeline.
+Author: Jose Sandoval, Manikanta Katuri, Michael Domingo
+Requires-Python: >=3.10
+Dynamic: author
+Dynamic: requires-python
+Dynamic: summary

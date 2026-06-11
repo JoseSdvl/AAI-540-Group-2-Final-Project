@@ -281,6 +281,11 @@ def query_offline_features(
 
     ``query`` must reference the Athena table produced by the FeatureGroup
     (see ``fg.athena_query().table_name``).
+
+    The SageMaker SDK's ``AthenaQuery.wait()`` emits an INFO line every poll
+    (``"Query <uuid> is being executed."``). For a notebook surface that is
+    noise, so we silence the underlying ``sagemaker.feature_store.feature_group``
+    logger during ``wait()`` and emit a single submit + complete pair instead.
     """
     import boto3
     from sagemaker.session import Session
@@ -292,5 +297,18 @@ def query_offline_features(
     if output_location is None:
         output_location = f"{FEATURE_STORE_S3_PREFIX}/athena-results/"
     q.run(query_string=query, output_location=output_location)
-    q.wait()
-    return q.as_dataframe()
+
+    query_id = getattr(q, "query_execution_id", None) or "?"
+    logger.info("Athena query submitted (id=%s) — waiting for results...", query_id)
+
+    sdk_logger = logging.getLogger("sagemaker.feature_store.feature_group")
+    prev_level = sdk_logger.level
+    sdk_logger.setLevel(logging.WARNING)
+    try:
+        q.wait()
+    finally:
+        sdk_logger.setLevel(prev_level)
+
+    df = q.as_dataframe()
+    logger.info("Athena query complete — %d rows × %d cols.", len(df), df.shape[1])
+    return df

@@ -13,11 +13,20 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
+import sys
 import tarfile
 from pathlib import Path
 
 import joblib
 import pandas as pd
+
+# When SageMaker FrameworkProcessor runs this script, sys.path[0] is the script's
+# own directory (.../code/readmit/pipeline/), NOT the source_dir root (.../code/),
+# so `from readmit.*` cannot resolve. Add the source_dir root to sys.path.
+_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
 
 from readmit.config import FEATURES, LABEL_COL
 from readmit.features.engineering import add_derived_columns, winsorize_utilization

@@ -80,6 +80,7 @@ def create_data_quality_baseline(
         dataset_format=DatasetFormat.csv(header=True),
         output_s3_uri=output_s3_uri,
         wait=True,
+        logs=False,   # Processing-job logs stay in CloudWatch — don't stream them to the caller.
     )
     logger.info("Data-quality baseline written to %s", output_s3_uri)
     return monitor

@@ -1,0 +1,10 @@
+# Installed by sagemaker.processing.FrameworkProcessor (preprocess/evaluate jobs)
+# AND by the SKLearn estimator (train job) inside the SKLearn 1.2-1 container.
+# Keep MINIMAL — pandas/numpy/scikit-learn/joblib/pyarrow already ship with the
+# container; only add what's actually missing in-container.
+#
+# fsspec + s3fs : pd.read_parquet(s3://...) in readmit.data.curate_cms.
+# xgboost       : readmit.models.train.build_xgb_pipeline (NOT in the container).
+fsspec>=2024.3.0
+s3fs>=2024.3.0
+xgboost>=1.7,<3.0

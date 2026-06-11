@@ -13,7 +13,16 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
+import sys
 from pathlib import Path
+
+# When SageMaker FrameworkProcessor runs this script, sys.path[0] is the script's
+# own directory (.../code/readmit/pipeline/), NOT the source_dir root (.../code/),
+# so `from readmit.*` cannot resolve. Add the source_dir root to sys.path.
+_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
 
 from readmit.data.ingest import load_encounters
 from readmit.data.labeling import attach_labels_and_priors
@@ -25,10 +34,13 @@ logger = logging.getLogger(__name__)
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--source", choices=["synthetic", "s3"], default="synthetic")
+    p.add_argument("--source", choices=["synthetic", "s3", "cms-open"],
+                   default="synthetic")
     p.add_argument("--s3-uri", default=None,
-                   help="Required when --source s3, e.g. s3://cms-readmit-curated/")
+                   help="Required when --source s3 or cms-open, e.g. s3://cms-readmit-curated/")
     p.add_argument("--n-patients", type=int, default=50_000)
+    p.add_argument("--cms-tier", default="100k",
+                   help="Only used when --source cms-open (e.g. '1k' or '100k').")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--train-out", default="/opt/ml/processing/train")
     p.add_argument("--test-out", default="/opt/ml/processing/test")
@@ -39,6 +51,7 @@ def main() -> int:
     encounters = load_encounters(
         source=args.source, s3_uri=args.s3_uri,
         n_patients=args.n_patients, seed=args.seed,
+        cms_tier=args.cms_tier,
     )
 
     logger.info("Attaching 30-day readmission labels + priors")

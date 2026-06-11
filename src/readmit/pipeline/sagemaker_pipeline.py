@@ -44,9 +44,8 @@ def build_pipeline(
 ):
     """Construct (but do not run) the SageMaker Pipeline."""
     import sagemaker
-    from sagemaker.processing import ProcessingInput, ProcessingOutput
+    from sagemaker.processing import FrameworkProcessor, ProcessingInput, ProcessingOutput
     from sagemaker.sklearn.estimator import SKLearn
-    from sagemaker.sklearn.processing import SKLearnProcessor
     from sagemaker.workflow.condition_step import ConditionStep
     from sagemaker.workflow.conditions import ConditionGreaterThanOrEqualTo
     from sagemaker.workflow.functions import JsonGet
@@ -69,7 +68,13 @@ def build_pipeline(
     )
 
     # ---- 1) Preprocess --------------------------------------------------
-    sklearn_processor = SKLearnProcessor(
+    # FrameworkProcessor (not SKLearnProcessor) so we can pass source_dir and
+    # ship the entire `readmit` package into the container — `code=` alone
+    # only uploads the single entrypoint file, which breaks
+    #     `from readmit.data.ingest import load_encounters`
+    # inside the job.
+    sklearn_processor = FrameworkProcessor(
+        estimator_cls=SKLearn,
         framework_version="1.2-1",
         role=role_arn,
         instance_type=processing_instance,
@@ -84,18 +89,19 @@ def build_pipeline(
         "--n-patients", p_n_patients.to_string(),
     ]
 
-    preprocess_step = ProcessingStep(
-        name="Preprocess",
-        processor=sklearn_processor,
-        code=f"{source_dir}/readmit/pipeline/preprocess_job.py",
+    preprocess_run_args = sklearn_processor.run(
+        code="readmit/pipeline/preprocess_job.py",
+        source_dir=source_dir,
         outputs=[
             ProcessingOutput(output_name="train", source="/opt/ml/processing/train"),
             ProcessingOutput(output_name="test", source="/opt/ml/processing/test"),
             ProcessingOutput(output_name="validation",
                              source="/opt/ml/processing/validation"),
         ],
-        job_arguments=preprocess_args,
+        arguments=preprocess_args,
     )
+
+    preprocess_step = ProcessingStep(name="Preprocess", step_args=preprocess_run_args)
 
     # ---- 2) Train -------------------------------------------------------
     estimator = SKLearn(
@@ -140,10 +146,9 @@ def build_pipeline(
         name="EvaluationReport", output_name="evaluation", path="evaluation.json"
     )
 
-    evaluate_step = ProcessingStep(
-        name="Evaluate",
-        processor=sklearn_processor,
-        code=f"{source_dir}/readmit/pipeline/evaluate_job.py",
+    evaluate_run_args = sklearn_processor.run(
+        code="readmit/pipeline/evaluate_job.py",
+        source_dir=source_dir,
         inputs=[
             ProcessingInput(
                 source=train_step.properties.ModelArtifacts.S3ModelArtifacts,
@@ -160,6 +165,11 @@ def build_pipeline(
             ProcessingOutput(output_name="evaluation",
                              source="/opt/ml/processing/evaluation"),
         ],
+    )
+
+    evaluate_step = ProcessingStep(
+        name="Evaluate",
+        step_args=evaluate_run_args,
         property_files=[evaluation_report],
     )
 

@@ -16,7 +16,15 @@ from __future__ import annotations
 import io
 import json
 import os
+import sys
 from typing import Any
+
+# SageMaker launches this entry point directly, so sys.path[0] is the script's
+# own dir (.../code/readmit/models/), not the source_dir root. Add the root so
+# `from readmit.*` imports resolve in-container.
+_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
 
 import joblib
 import numpy as np

@@ -147,7 +147,13 @@ def curate_cms_synpuf(
     if curated_s3_uri:
         out = curated_s3_uri.rstrip("/") + "/encounters.parquet"
         logger.info("Writing curated encounters (%d rows) to %s", len(encounters), out)
-        encounters.to_parquet(out, index=False, storage_options=storage_options_curated)
+        # Only forward storage_options when caller actually provided one.
+        # Older pandas (SKLearn 1.2-1 container) forwards storage_options=None
+        # straight to pyarrow.parquet.write_table(), which rejects the kwarg.
+        write_kwargs = {"index": False}
+        if storage_options_curated:
+            write_kwargs["storage_options"] = storage_options_curated
+        encounters.to_parquet(out, **write_kwargs)
 
     return _maybe_sample(encounters, sample_n)
 
@@ -377,8 +383,12 @@ def _attach_chronic_conditions(inpat: pd.DataFrame, conditions: pd.DataFrame) ->
 
 def _try_read_cached(curated_s3_uri: str, storage_options: dict | None) -> pd.DataFrame | None:
     uri = curated_s3_uri.rstrip("/") + "/encounters.parquet"
+    # Only forward storage_options when caller actually provided one — older
+    # pandas (SKLearn 1.2-1 container) forwards storage_options=None straight
+    # to pyarrow.parquet.read_table(), which rejects the kwarg.
+    read_kwargs = {"storage_options": storage_options} if storage_options else {}
     try:
-        return pd.read_parquet(uri, storage_options=storage_options)
+        return pd.read_parquet(uri, **read_kwargs)
     except (FileNotFoundError, OSError) as exc:  # pragma: no cover - depends on s3fs runtime
         logger.info("No cached encounters at %s (%s); will re-curate.", uri, exc)
         return None

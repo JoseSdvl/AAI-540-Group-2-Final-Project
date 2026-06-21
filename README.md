@@ -1,7 +1,9 @@
 # AAI-540 Group 2 — 30-Day Hospital Readmission Risk
 
 **Business name:** ClearPath Health Analytics
+
 **Authors:** Jose Sandoval, Manikanta Katuri, Michael Domingo
+
 **Course:** AAI-540 — Machine Learning Operations
 
 End-to-end MLOps project that predicts the 30-day hospital-readmission risk of
